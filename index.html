@@ -110,7 +110,10 @@
     <script>
         // === إعدادات الربط الآمنة والمباشرة ===
         const URL_DB = "https://supabase.co";
-        const KEY_DB = "ضع_هنا_مفتاحsb_publishable_aciq98AEwaOkrJ-KjH9SOw_8eB3TmKT";
+        const KEY_DB = "sb_publishable_aciq98AEwaOkrJ-KjH9SOw_8eB3TmKT";
+
+        // تشغيل اتصال سوبابيز تلقائياً عند تحميل الصفحة
+        const supabaseClient = supabase.createClient(URL_DB, KEY_DB);
 
         let currentUser = null;
         let userId = null;
@@ -125,20 +128,23 @@
             const msg = document.getElementById('auth-msg');
             if(!username) { msg.innerText = "الرجاء كتابة اسم المستخدم أولاً!"; return; }
 
+            msg.style.color = "blue";
             msg.innerText = "جاري البحث عن حسابك في قاعدة البيانات...";
 
             try {
-                const supabaseClient = supabase.createClient(URL_DB, KEY_DB);
                 let { data: users, error } = await supabaseClient.from('users_farm').select('*').eq('username', username);
 
-                if(error) { msg.innerText = "خطأ: " + error.message; return; }
+                if(error) { msg.style.color = "red"; msg.innerText = "خطأ: " + error.message; return; }
 
                 if(users && users.length > 0) {
-                    loadUserData(users[0]); // تحميل الحساب الأول المكتشف
+                    // إلغاء التضارب: قراءة العنصر الأول داخل المصفوفة [0] بشكل صريح
+                    loadUserData(users[0]); 
                 } else {
+                    msg.style.color = "orange";
                     msg.innerText = "هذا الحساب غير موجود! اضغط على زر إنشاء حساب جديد.";
                 }
             } catch (e) {
+                msg.style.color = "red";
                 msg.innerText = "خطأ اتصال: " + e.message;
             }
         }
@@ -149,26 +155,28 @@
             const msg = document.getElementById('auth-msg');
             if(!username) { msg.innerText = "الرجاء كتابة اسم المستخدم أولاً!"; return; }
 
+            msg.style.color = "blue";
             msg.innerText = "جاري إنشاء وتأمين حسابك الجديد...";
 
             try {
-                const supabaseClient = supabase.createClient(URL_DB, KEY_DB);
-                
                 // التأكد أولاً أن الاسم غير مكرر
                 let { data: checkUsers } = await supabaseClient.from('users_farm').select('username').eq('username', username);
-                if(checkUsers && checkUsers.length > 0) { msg.innerText = "هذا الاسم محجوز للاعب آخر! اختر اسماً مميزاً."; return; }
+                if(checkUsers && checkUsers.length > 0) { msg.style.color = "orange"; msg.innerText = "هذا الاسم محجوز للاعب آخر! اختر اسماً مميزاً."; return; }
 
                 // إدخال الحساب الجديد
                 let { data: newUser, error: createError } = await supabaseClient.from('users_farm').insert([{ username: username, balance: 0.0, energy: 100 }]).select();
                 
-                if(createError) { msg.innerText = "فشل الإنشاء: " + createError.message; return; }
+                if(createError) { msg.style.color = "red"; msg.innerText = "فشل الإنشاء: " + createError.message; return; }
                 
                 if(newUser && newUser.length > 0) {
+                    // إلغاء التضارب: قراءة العنصر الأول داخل المصفوفة الجديدة [0]
                     loadUserData(newUser[0]);
                 } else {
-                    msg.innerText = "تم الإنشاء! يرجى الضغط على زر تسجيل الدخول الآن.";
+                    msg.style.color = "green";
+                    msg.innerText = "تم الإنشاء بنجاح! يرجى الضغط على زر تسجيل الدخول الآن للبدء.";
                 }
             } catch (e) {
+                msg.style.color = "red";
                 msg.innerText = "خطأ غير متوقع: " + e.message;
             }
         }
@@ -202,7 +210,6 @@
                     balance += 0.00005;
                     updateUI();
                     
-                    const supabaseClient = supabase.createClient(URL_DB, KEY_DB);
                     await supabaseClient.from('users_farm').update({ balance: balance, energy: energy }).eq('id', userId);
                 } else {
                     clearInterval(gameLoopInterval);
@@ -225,8 +232,5 @@
                 document.getElementById('bird').classList.add('dead');
                 document.getElementById('bird-status').innerHTML = '<span class="danger-text">مات الطير بسبب الإهمال!</span>';
                 document.getElementById('feed-btn').disabled = true;
-            } else {
-                document.getElementById('bird').innerText = "🐥";
-                document.getElementById('bird').classList.remove('dead');
-                document.getElementById('bird-status').innerHTML = '<span style="color: green; font-weight: bold;">نشيط وبصحة جيدة</span>';
-document.getElementById('feed-btn').disabled = false;}}// زر إطعام الطيرasync function feedBird() {if (!isDead) {energy = 100;updateUI();alert("تم إطعام الطير بنجاح! وحفظ الطاقة 100% في السيرفر");const supabaseClient = supabase.createClient(URL_DB, KEY_DB);await supabaseClient.from('users_farm').update({ energy: energy }).eq('id', userId);}}// تسجيل الخروجfunction logout() {clearInterval(gameLoopInterval);document.getElementById('game-box').classList.add('hidden');document.getElementById('auth-box').classList.remove('hidden');document.getElementById('auth-msg').innerText = "";document.getElementById('username-input').value = "";}
+} else {document.getElementById('bird').innerText = "🐥";document.getElementById('bird').classList.remove('dead');document.getElementById('bird-status').innerHTML = 'نشيط وبصحة جيدة';document.getElementById('feed-btn').disabled = false;}}
+        async function feedBird() {if (!isDead) {energy = 100;updateUI();alert("تم إطعام الطير بنجاح! وحفظ الطاقة 100% في السيرفر");await supabaseClient.from('users_farm').update({ energy: energy }).eq('id', userId);}}function logout() {clearInterval(gameLoopInterval);document.getElementById('game-box').classList.add('hidden');document.getElementById('auth-box').classList.remove('hidden');document.getElementById('auth-msg').innerText = "";document.getElementById('username-input').value = "";}
