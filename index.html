@@ -45,19 +45,22 @@
             transition: width 1s linear, background-color 0.5s;
         }
         button {
-            background-color: #2196f3;
             color: white;
             border: none;
             padding: 12px 30px;
-            font-size: 18px;
+            font-size: 16px;
             border-radius: 25px;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
             transition: 0.2s;
             width: 100%;
             margin-top: 10px;
+            font-weight: bold;
         }
-        button:hover { background-color: #0b7dda; }
+        .btn-login { background-color: #2196f3; box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3); }
+        .btn-login:hover { background-color: #0b7dda; }
+        .btn-register { background-color: #4caf50; box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3); }
+        .btn-register:hover { background-color: #388e3c; }
+        .btn-feed { background-color: #ff9800; font-size: 18px; box-shadow: 0 5px 15px rgba(255, 152, 0, 0.3); }
         button:disabled { background-color: #cccccc; cursor: not-allowed; box-shadow: none; }
         input {
             width: 90%;
@@ -73,13 +76,16 @@
 </head>
 <body>
 
-    <!-- واجهة تسجيل الدخول وإنشاء الحساب -->
+    <!-- واجهة تسجيل الدخول وإنشاء الحساب المفصولة بناءً على فكرتك -->
     <div id="auth-box" class="auth-container">
         <h2>مرحباً بك في المزرعة الذكية 🌾</h2>
-        <p>ادخل اسم مستخدم فريد لتبدأ اللعب وحفظ أرباحك</p>
+        <p>اكتب اسم مستخدم بالإنجليزية لتبدأ</p>
         <input type="text" id="username-input" placeholder="اكتب اسم المستخدم هنا...">
-        <button onclick="loginOrRegister()">دخول / تسجيل حساب جديد</button>
-        <p id="auth-msg" style="color: red; font-size: 14px;"></p>
+        
+        <button class="btn-login" onclick="loginExistingUser()">🔑 تسجيل دخول (لدي حساب سابق)</button>
+        <button class="btn-register" onclick="registerNewUser()">✨ إنشاء حساب جديد (لاعب جديد)</button>
+        
+        <p id="auth-msg" style="color: blue; font-size: 14px; margin-top: 15px; font-weight: bold;"></p>
     </div>
 
     <!-- واجهة اللعبة والمزرعة الرئيسية -->
@@ -97,17 +103,14 @@
             <div id="energy-bar" class="progress"></div>
         </div>
 
-        <button id="feed-btn" onclick="feedBird()">🌾 إطعام الطير (مشاهدة إعلان)</button>
-        <button onclick="logout()" style="background-color: #777; font-size: 14px; padding: 5px; width: auto; border-radius: 5px;">تسجيل الخروج</button>
+        <button id="feed-btn" class="btn-feed" onclick="feedBird()">🌾 إطعام الطير (مشاهدة إعلان)</button>
+        <button onclick="logout()" style="background-color: #777; font-size: 12px; padding: 5px; width: auto; border-radius: 5px; margin-top: 20px;">تسجيل الخروج</button>
     </div>
 
     <script>
-        // === إعدادات الربط الآمنة بقاعدة البيانات ===
-        const MY_PROJECT_URL = "https://supabase.co";
-        const MY_ANON_KEY = "sb_publishable_aciq98AEwaOkrJ-KjH9SOw_8eB3TmKT";
-        
-        // تعريف المحرك بدون أي كلمات متعارضة مع السيرفر القديم
-        const farmStorage = supabase.createClient(MY_PROJECT_URL, MY_ANON_KEY);
+        // === إعدادات الربط الآمنة والمباشرة ===
+        const URL_DB = "https://supabase.co";
+        const KEY_DB = "ضع_هنا_مفتاح_anon_public_key_الذي_يبدأ_بـ_sb_publishable";
 
         let currentUser = null;
         let userId = null;
@@ -116,38 +119,57 @@
         let isDead = false;
         let gameLoopInterval = null;
 
-        // وظيفة تسجيل الدخول أو إنشاء الحساب تلقائياً
-        async function loginOrRegister() {
+        // الخيار 1: تسجيل دخول لحساب موجود مسبقاً
+        async function loginExistingUser() {
             const username = document.getElementById('username-input').value.trim();
             const msg = document.getElementById('auth-msg');
             if(!username) { msg.innerText = "الرجاء كتابة اسم المستخدم أولاً!"; return; }
 
-            msg.style.color = "blue";
-            msg.innerText = "جاري الفحص والاتصال بقاعدة البيانات...";
+            msg.innerText = "جاري البحث عن حسابك في قاعدة البيانات...";
 
             try {
-                // البحث عن المستخدم في الجدول باستخدام المعرف الجديد
-                let { data: users, error } = await farmStorage.from('users_farm').select('*').eq('username', username);
+                const supabaseClient = supabase.createClient(URL_DB, KEY_DB);
+                let { data: users, error } = await supabaseClient.from('users_farm').select('*').eq('username', username);
 
-                if(error) { msg.style.color = "red"; msg.innerText = "خطأ في الفحص: " + error.message; return; }
+                if(error) { msg.innerText = "خطأ: " + error.message; return; }
 
                 if(users && users.length > 0) {
-                    // المستخدم موجود مسبقاً، قم بتحميل بياناته
-                    loadUserData(users[0]);
+                    loadUserData(users[0]); // تحميل الحساب الأول المكتشف
                 } else {
-                    // مستخدم جديد، قم بإنشائه في الجدول
-                    let { data: newUser, error: createError } = await farmStorage.from('users_farm').insert([{ username: username, balance: 0.0, energy: 100 }]).select();
-                    if(createError) { msg.style.color = "red"; msg.innerText = "فشل إنشاء الحساب: " + createError.message; return; }
-                    
-                    if(newUser && newUser.length > 0) {
-                        loadUserData(newUser[0]);
-                    } else {
-                        msg.style.color = "red"; msg.innerText = "فشل استرداد بيانات الحساب الجديد!";
-                    }
+                    msg.innerText = "هذا الحساب غير موجود! اضغط على زر إنشاء حساب جديد.";
                 }
             } catch (e) {
-                msg.style.color = "red";
-                msg.innerText = "حدث خطأ غير متوقع: " + e.message;
+                msg.innerText = "خطأ اتصال: " + e.message;
+            }
+        }
+
+        // الخيار 2: إنشاء حساب جديد تماماً
+        async function registerNewUser() {
+            const username = document.getElementById('username-input').value.trim();
+            const msg = document.getElementById('auth-msg');
+            if(!username) { msg.innerText = "الرجاء كتابة اسم المستخدم أولاً!"; return; }
+
+            msg.innerText = "جاري إنشاء وتأمين حسابك الجديد...";
+
+            try {
+                const supabaseClient = supabase.createClient(URL_DB, KEY_DB);
+                
+                // التأكد أولاً أن الاسم غير مكرر
+                let { data: checkUsers } = await supabaseClient.from('users_farm').select('username').eq('username', username);
+                if(checkUsers && checkUsers.length > 0) { msg.innerText = "هذا الاسم محجوز للاعب آخر! اختر اسماً مميزاً."; return; }
+
+                // إدخال الحساب الجديد
+                let { data: newUser, error: createError } = await supabaseClient.from('users_farm').insert([{ username: username, balance: 0.0, energy: 100 }]).select();
+                
+                if(createError) { msg.innerText = "فشل الإنشاء: " + createError.message; return; }
+                
+                if(newUser && newUser.length > 0) {
+                    loadUserData(newUser[0]);
+                } else {
+                    msg.innerText = "تم الإنشاء! يرجى الضغط على زر تسجيل الدخول الآن.";
+                }
+            } catch (e) {
+                msg.innerText = "خطأ غير متوقع: " + e.message;
             }
         }
 
@@ -168,36 +190,32 @@
             startGameLoop();
         }
 
-        // محرك اللعبة الرئيسي (ينقص الطاقة ويزيد الأرباح ويحفظ في السيرفر كل 3 ثوانٍ)
+        // محرك اللعبة الرئيسي لزيادة الأرباح وحفظها تلقائياً
         function startGameLoop() {
             if(gameLoopInterval) clearInterval(gameLoopInterval);
 
             gameLoopInterval = setInterval(async () => {
                 if (!isDead) {
-                    // إنقاص الطاقة تدريجياً
                     energy--;
                     if(energy <= 0) { energy = 0; isDead = true; }
 
-                    // زيادة الأرباح طالما الطير حي
                     balance += 0.00005;
-
                     updateUI();
                     
-                    // تحديث وحفظ البيانات فوراً في السيرفر
-                    await farmStorage.from('users_farm').update({ balance: balance, energy: energy }).eq('id', userId);
+                    const supabaseClient = supabase.createClient(URL_DB, KEY_DB);
+                    await supabaseClient.from('users_farm').update({ balance: balance, energy: energy }).eq('id', userId);
                 } else {
                     clearInterval(gameLoopInterval);
                 }
             }, 3000);
         }
 
-        // تحديث عناصر الشاشة واجهات المستخدم
+        // تحديث عناصر الواجهة
         function updateUI() {
             document.getElementById('balance').innerText = balance.toFixed(5);
             document.getElementById('timer').innerText = energy + '%';
             document.getElementById('energy-bar').style.width = energy + '%';
 
-            // تلوين شريط الطاقة حسب الجوع
             if (energy > 50) document.getElementById('energy-bar').style.backgroundColor = '#4caf50';
             else if (energy > 20) document.getElementById('energy-bar').style.backgroundColor = '#ff9800';
             else document.getElementById('energy-bar').style.backgroundColor = '#f44336';
@@ -211,28 +229,4 @@
                 document.getElementById('bird').innerText = "🐥";
                 document.getElementById('bird').classList.remove('dead');
                 document.getElementById('bird-status').innerHTML = '<span style="color: green; font-weight: bold;">نشيط وبصحة جيدة</span>';
-                document.getElementById('feed-btn').disabled = false;
-            }
-        }
-
-        // وظيفة زر الإطعام وإرجاع الطاقة لـ 100% وحفظها
-        async function feedBird() {
-            if (!isDead) {
-                energy = 100;
-                updateUI();
-                alert("تم إطعام الطير بنجاح! وحفظ الطاقة 100% في قاعدة البيانات");
-                await farmStorage.from('users_farm').update({ energy: energy }).eq('id', userId);
-            }
-        }
-
-        // تسجيل الخروج والعودة للقائمة
-        function logout() {
-            clearInterval(gameLoopInterval);
-            document.getElementById('game-box').classList.add('hidden');
-            document.getElementById('auth-box').classList.remove('hidden');
-            document.getElementById('auth-msg').innerText = "";
-            document.getElementById('username-input').value = "";
-        }
-    </script>
-</body>
-</html>
+document.getElementById('feed-btn').disabled = false;}}// زر إطعام الطيرasync function feedBird() {if (!isDead) {energy = 100;updateUI();alert("تم إطعام الطير بنجاح! وحفظ الطاقة 100% في السيرفر");const supabaseClient = supabase.createClient(URL_DB, KEY_DB);await supabaseClient.from('users_farm').update({ energy: energy }).eq('id', userId);}}// تسجيل الخروجfunction logout() {clearInterval(gameLoopInterval);document.getElementById('game-box').classList.add('hidden');document.getElementById('auth-box').classList.remove('hidden');document.getElementById('auth-msg').innerText = "";document.getElementById('username-input').value = "";}
