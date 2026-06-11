@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>محاكاة مزرعة الطيور الذكية</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef9f6;
+            text-align: center;
+            padding: 20px;
+            color: #333;
+        }
+        .farm-container {
+            background: white;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+        .bird-icon {
+            font-size: 80px;
+            margin: 20px 0;
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+        .dead { transform: rotate(90deg); filter: grayscale(100%); }
+        .status-bar {
+            background: #eee;
+            border-radius: 10px;
+            height: 20px;
+            width: 100%;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .progress {
+            background: #4caf50;
+            height: 100%;
+            width: 100%;
+            transition: width 1s linear, background-color 0.5s;
+        }
+        button {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(33, 150, 243, 0.3);
+            transition: 0.2s;
+        }
+        button:hover { background-color: #0b7dda; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; box-shadow: none; }
+        .danger-text { color: #f44336; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="farm-container">
+        <h2>مزرعتي الصادقة 🌾</h2>
+        <p>رصيد الأرباح: <span id="balance">0.0000</span> USDT</p>
+        
+        <!-- الطائر الافتراضي -->
+        <div id="bird" class="bird-icon">🐥</div>
+        
+        <p id="bird-status">حالة الطير: <span style="color: green; font-weight: bold;">نشيط وبصحة جيدة</span></p>
+        <p>الوقت المتبقي حتى الجوع: <span id="timer" class="danger-text">24:00:00</span></p>
+        
+        <!-- شريط الطاقة -->
+        <div class="status-bar">
+            <div id="energy-bar" class="progress"></div>
+        </div>
+
+        <!-- زر الإطعام والنشاط -->
+        <button id="feed-btn" onclick="feedBird()">🌾 إطعام الطير (مشاهدة إعلان)</button>
+    </div>
+
+    <script>
+        // لغرض التجربة السريعة: جعلنا الـ 24 ساعة تمر في 120 ثانية فقط لتشاهد الموت والحياة بسرعة
+        let totalSeconds = 120; 
+        const maxSeconds = 120;
+        let balance = 0.0;
+        let isDead = false;
+
+        const timerElement = document.getElementById('timer');
+        const energyBar = document.getElementById('energy-bar');
+        const birdElement = document.getElementById('bird');
+        const birdStatus = document.getElementById('bird-status');
+        const feedBtn = document.getElementById('feed-btn');
+        const balanceElement = document.getElementById('balance');
+
+        // محرك العداد التنازلي ونمو الأرباح
+        const gameLoop = setInterval(() => {
+            if (totalSeconds > 0) {
+                totalSeconds--;
+                
+                // تحديث العداد على الشاشة
+                let mins = Math.floor(totalSeconds / 60);
+                let secs = totalSeconds % 60;
+                timerElement.innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                
+                // تحديث شريط الطاقة
+                let percentage = (totalSeconds / maxSeconds) * 100;
+                energyBar.style.width = percentage + '%';
+
+                // تغيير لون الشريط حسب مستوى الجوع
+                if (percentage > 50) energyBar.style.backgroundColor = '#4caf50';
+                else if (percentage > 20) energyBar.style.backgroundColor = '#ff9800';
+                else energyBar.style.backgroundColor = '#f44336';
+
+                // زيادة الأرباح طالما الطير حي ونشيط
+                balance += 0.0001;
+                balanceElement.innerText = balance.toFixed(4);
+
+            } else {
+                // عندما ينتهي الوقت ويموت الطير
+                isDead = true;
+                birdElement.innerText = "💀";
+                birdElement.classList.add('dead');
+                birdStatus.innerHTML = '<span class="danger-text">مات الطير بسبب الإهمال!</span>';
+                timerElement.innerText = "00:00";
+                feedBtn.disabled = true;
+                clearInterval(gameLoop); // إيقاف إنتاج الأرباح تماماً
+            }
+        }, 1000);
+
+        // وظيفة زر الإطعام
+        function feedBird() {
+            if (!isDead) {
+                alert("تم إطعام الطير بنجاح! (محاكاة: هنا يظهر الإعلان للمقايضة)");
+                totalSeconds = maxSeconds; // إعادة تعيين العداد لـ 24 ساعة
+                energyBar.style.width = '100%';
+                energyBar.style.backgroundColor = '#4caf50';
+            }
+        }
+    </script>
+</body>
+</html>
