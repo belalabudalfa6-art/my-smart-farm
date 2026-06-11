@@ -102,7 +102,7 @@
     </div>
 
     <script>
-        // === إعدادات الربط بقاعدة البيانات (تم تجهيز الرابط لك تلقائياً) ===
+        // === إعدادات الربط الآمنة بقاعدة البيانات ===
         const SUPABASE_URL = "https://supabase.co";
         const SUPABASE_KEY = "sb_publishable_aciq98AEwaOkrJ-KjH9SOw_8eB3TmKT";
         
@@ -125,19 +125,29 @@
             msg.style.color = "blue";
             msg.innerText = "جاري الفحص والاتصال بقاعدة البيانات...";
 
-            // البحث عن المستخدم في الجدول
-            let { data: users, error } = await _supabase.from('users_farm').select('*').eq('username', username);
+            try {
+                // البحث عن المستخدم في الجدول
+                let { data: users, error } = await _supabase.from('users_farm').select('*').eq('username', username);
 
-            if(error) { msg.style.color = "red"; msg.innerText = "خطأ في الاتصال: " + error.message; return; }
+                if(error) { msg.style.color = "red"; msg.innerText = "خطأ في الفحص: " + error.message; return; }
 
-            if(users.length > 0) {
-                // المستخدم موجود مسبقاً، قم بتحميل بياناته
-                loadUserData(users[0]);
-            } else {
-                // مستخدم جديد، قم بإنشائه في الجدول
-                let { data: newUser, error: createError } = await _supabase.from('users_farm').insert([{ username: username, balance: 0.0, energy: 100 }]).select();
-                if(createError) { msg.style.color = "red"; msg.innerText = "فشل إنشاء الحساب: " + createError.message; return; }
-                loadUserData(newUser[0]);
+                if(users && users.length > 0) {
+                    // المستخدم موجود مسبقاً، قم بتحميل بياناته
+                    loadUserData(users[0]);
+                } else {
+                    // مستخدم جديد، قم بإنشائه في الجدول
+                    let { data: newUser, error: createError } = await _supabase.from('users_farm').insert([{ username: username, balance: 0.0, energy: 100 }]).select();
+                    if(createError) { msg.style.color = "red"; msg.innerText = "فشل إنشاء الحساب: " + createError.message; return; }
+                    
+                    if(newUser && newUser.length > 0) {
+                        loadUserData(newUser[0]);
+                    } else {
+                        msg.style.color = "red"; msg.innerText = "فشل استرداد بيانات الحساب الجديد!";
+                    }
+                }
+            } catch (e) {
+                msg.style.color = "red";
+                msg.innerText = "حدث خطأ غير متوقع: " + e.message;
             }
         }
 
@@ -145,8 +155,8 @@
         function loadUserData(user) {
             currentUser = user.username;
             userId = user.id;
-            balance = parseFloat(user.balance);
-            energy = parseInt(user.energy);
+            balance = parseFloat(user.balance || 0);
+            energy = parseInt(user.energy || 100);
             isDead = energy <= 0;
 
             document.getElementById('auth-box').classList.add('hidden');
@@ -164,7 +174,7 @@
 
             gameLoopInterval = setInterval(async () => {
                 if (!isDead) {
-                    // إنقاص الطاقة تدريجياً (ينقص 1% كل 3 ثوانٍ للتجربة السريعة)
+                    // إنقاص الطاقة تدريجياً
                     energy--;
                     if(energy <= 0) { energy = 0; isDead = true; }
 
