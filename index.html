@@ -106,8 +106,8 @@
         const SUPABASE_URL = "https://supabase.co";
         const SUPABASE_KEY = "sb_publishable_aciq98AEwaOkrJ-KjH9SOw_8eB3TmKT";
         
-        // تشغيل اتصال سوبابيز
-        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // تشغيل اتصال سوبابيز الرسمي بدون شرطة سفلية
+        const clientSupabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         let currentUser = null;
         let userId = null;
@@ -127,7 +127,7 @@
 
             try {
                 // البحث عن المستخدم في الجدول
-                let { data: users, error } = await _supabase.from('users_farm').select('*').eq('username', username);
+                let { data: users, error } = await clientSupabase.from('users_farm').select('*').eq('username', username);
 
                 if(error) { msg.style.color = "red"; msg.innerText = "خطأ في الفحص: " + error.message; return; }
 
@@ -136,7 +136,7 @@
                     loadUserData(users[0]);
                 } else {
                     // مستخدم جديد، قم بإنشائه في الجدول
-                    let { data: newUser, error: createError } = await _supabase.from('users_farm').insert([{ username: username, balance: 0.0, energy: 100 }]).select();
+                    let { data: newUser, error: createError } = await clientSupabase.from('users_farm').insert([{ username: username, balance: 0.0, energy: 100 }]).select();
                     if(createError) { msg.style.color = "red"; msg.innerText = "فشل إنشاء الحساب: " + createError.message; return; }
                     
                     if(newUser && newUser.length > 0) {
@@ -184,7 +184,7 @@
                     updateUI();
                     
                     // تحديث وحفظ البيانات في قاعدة بيانات سوبابيز فوراً
-                    await _supabase.from('users_farm').update({ balance: balance, energy: energy }).eq('id', userId);
+                    await clientSupabase.from('users_farm').update({ balance: balance, energy: energy }).eq('id', userId);
                 } else {
                     clearInterval(gameLoopInterval);
                 }
@@ -221,7 +221,7 @@
                 energy = 100;
                 updateUI();
                 alert("تم إطعام الطير بنجاح! وحفظ الطاقة 100% في قاعدة البيانات");
-                await _supabase.from('users_farm').update({ energy: energy }).eq('id', userId);
+                await clientSupabase.from('users_farm').update({ energy: energy }).eq('id', userId);
             }
         }
 
